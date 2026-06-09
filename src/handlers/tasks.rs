@@ -5,6 +5,7 @@ use axum::{
     extract::State,
     Json,
     http::StatusCode,
+    debug_handler
 };
 use jsonwebtoken::{encode, EncodingKey, Header};
 use redis::AsyncCommands;
@@ -163,9 +164,10 @@ pub async fn verify_2fa(
 }
 
 // 5. POST /tasks (Admin Only)
+#[debug_handler]
 pub async fn create_task(
     AuthUser(claims): AuthUser,
-    State(state): State<Arc<AppState>>,
+    State(state): State<SharedState>,
     Json(payload): Json<CreateTaskRequest>,
 ) -> Result<(StatusCode, String), (StatusCode, String)> {
     // Assert Admin Role Requirement
@@ -187,9 +189,10 @@ pub async fn create_task(
 }
 
 // 6. POST /tasks/assign (Admin Only + Cache Invalidation)
+#[debug_handler]
 pub async fn assign_tasks(
     AuthUser(claims): AuthUser,
-    State(state): State<Arc<AppState>>,
+    State(state): State<SharedState>,
     Json(payload): Json<AssignTasksRequest>,
 ) -> Result<Json<AssignTasksResponse>, (StatusCode, String)> {
     if claims.role != UserRole::Admin {
@@ -215,9 +218,10 @@ pub async fn assign_tasks(
 }
 
 // 7. GET /tasks/view-my-tasks (Caching Flow Implementation)
+#[debug_handler]
 pub async fn view_my_tasks(
     AuthUser(claims): AuthUser,
-    State(state): State<Arc<AppState>>,
+    State(state): State<SharedState>,
 ) -> Result<Json<ViewTasksResponse>, (StatusCode, String)> {
     let cache_key = format!("cache:tasks:{}", claims.sub);
     
