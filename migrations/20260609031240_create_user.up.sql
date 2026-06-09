@@ -10,10 +10,12 @@ CREATE TYPE task_status AS ENUM ('todo', 'in_progress', 'done');
 -- 3. Users Table
 CREATE TABLE users (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    full_name VARCHAR(255) NOT NULL,
     email VARCHAR(255) UNIQUE NOT NULL,
-    password_hash VARCHAR(255) NOT NULL, -- Argon2 / Bcrypt hash
+    hashed_password VARCHAR(255) NOT NULL, -- Argon2 hash
     role user_role NOT NULL DEFAULT 'staff',
-    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 
 -- 4. Login Challenges Table (For 2FA isolation step)
@@ -33,9 +35,10 @@ CREATE TABLE tasks (
     description TEXT,
     status task_status NOT NULL DEFAULT 'todo',
     priority task_priority NOT NULL DEFAULT 'medium',
-    created_by UUID NOT NULL REFERENCES users(id),
+    created_by_id UUID NOT NULL REFERENCES users(id),
     assigned_to_id UUID REFERENCES users(id) ON DELETE SET NULL, -- Maps James Bond
-    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 
 -- 6. Simulated Development Email Logs Table 

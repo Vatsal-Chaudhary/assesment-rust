@@ -1,0 +1,357 @@
+openapi: 3.0.3
+info:
+  title: Task Management API
+  description: |
+    A REST API backend built with Axum implementing a task management system with JWT-based authentication, 
+    two-factor authentication (2FA), and Redis caching.
+  version: 1.0.0
+servers:
+  - url: http://localhost:8080
+    description: Local development server
+
+paths:
+  /seed/users:
+    post:
+      summary: Seed database users
+      description: Seeds the database with default admin and staff users (James Bond) for testing and validation.
+      responses:
+        '200':
+          description: Users seeded successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SeedUsersResponse'
+        '400':
+          description: Database already seeded
+          content:
+            text/plain:
+              schema:
+                type: string
+                example: Database already seeded
+
+  /auth/login:
+    post:
+      summary: Login and initiate 2FA challenge
+      description: Validates email and password, creates a 2FA challenge, and registers a verification code in the simulated email logs.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/LoginRequest'
+      responses:
+        '200':
+          description: Login initiated. 2FA challenge created.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/LoginResponse'
+        '401':
+          description: Invalid email or password
+          content:
+            text/plain:
+              schema:
+                type: string
+                example: Invalid email or password
+
+  /dev/email-logs/latest:
+    get:
+      summary: Retrieve latest 2FA code (Development Backdoor)
+      description: A development-only endpoint to retrieve the latest sent 2FA code and its challenge ID.
+      responses:
+        '200':
+          description: Latest 2FA code details
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/LatestEmailResponse'
+        '404':
+          description: No email logs found
+          content:
+            text/plain:
+              schema:
+                type: string
+                example: No email logs found
+
+  /auth/verify-2fa:
+    post:
+      summary: Verify 2FA code and obtain JWT
+      description: Validates the 2FA code against the challenge ID. If successful, consumes the challenge (single-use check) and returns a JWT token.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/Verify2FaRequest'
+      responses:
+        '200':
+          description: 2FA verified. JWT issued successfully.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Verify2FaResponse'
+        '400':
+          description: Invalid, expired, or already used 2FA code
+          content:
+            text/plain:
+              schema:
+                type: string
+                example: Invalid, expired, or already used 2FA code
+
+  /tasks:
+    post:
+      summary: Create a new task (Admin Only)
+      description: Creates a new task in the database. Only users with the `admin` role are authorized to call this endpoint.
+      security:
+        - BearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateTaskRequest'
+      responses:
+        '201':
+          description: Task successfully created
+          content:
+            text/plain:
+              schema:
+                type: string
+                example: Task successfully created
+        '401':
+          description: Unauthorized (Missing or invalid JWT token)
+        '403':
+          description: Forbidden (User does not have the `admin` role)
+          content:
+            text/plain:
+              schema:
+                type: string
+                example: "Forbidden: Only administrators can create tasks"
+
+  /tasks/assign:
+    post:
+      summary: Assign tasks to user (Admin Only)
+      description: Assigns a batch of tasks to a user. Invalidates the target user's tasks cache in Redis. Only users with the `admin` role are authorized.
+      security:
+        - BearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AssignTasksRequest'
+      responses:
+        '200':
+          description: Tasks assigned and cache invalidated successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AssignTasksResponse'
+        '401':
+          description: Unauthorized
+        '403':
+          description: Forbidden
+
+  /tasks/view-my-tasks:
+    get:
+      summary: View assigned tasks
+      description: Retrieves the list of tasks assigned to the logged-in user. Utilizes a per-user cache in Redis.
+      security:
+        - BearerAuth: []
+      responses:
+        '200':
+          description: List of assigned tasks with cache hit metadata
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ViewTasksResponse'
+        '401':
+          description: Unauthorized
+
+components:
+  securitySchemes:
+    BearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+      description: Pass your JWT token in the `Authorization` header as `Bearer <token>`
+
+  schemas:
+    UserRole:
+      type: string
+      enum: [admin, staff]
+
+    TaskPriority:
+      type: string
+      enum: [low, medium, high]
+
+    TaskStatus:
+      type: string
+      enum: [todo, in_progress, done]
+
+    SeedUsersResponse:
+      type: object
+      properties:
+        admin_id:
+          type: string
+          format: uuid
+        james_bond_id:
+          type: string
+          format: uuid
+        message:
+          type: string
+      required: [admin_id, james_bond_id, message]
+
+    LoginRequest:
+      type: object
+      properties:
+        email:
+          type: string
+          format: email
+          example: admin@company.com
+        password:
+          type: string
+          example: AdminPassword123
+      required: [email, password]
+
+    LoginResponse:
+      type: object
+      properties:
+        login_challenge_id:
+          type: string
+          format: uuid
+        message:
+          type: string
+      required: [login_challenge_id, message]
+
+    LatestEmailResponse:
+      type: object
+      properties:
+        email:
+          type: string
+          format: email
+        code:
+          type: string
+          minLength: 6
+          maxLength: 6
+          example: "123456"
+        login_challenge_id:
+          type: string
+          format: uuid
+      required: [email, code, login_challenge_id]
+
+    Verify2FaRequest:
+      type: object
+      properties:
+        login_challenge_id:
+          type: string
+          format: uuid
+        code:
+          type: string
+          minLength: 6
+          maxLength: 6
+      required: [login_challenge_id, code]
+
+    Verify2FaResponse:
+      type: object
+      properties:
+        token:
+          type: string
+          description: The signed JWT access token.
+        token_type:
+          type: string
+          example: Bearer
+      required: [token, token_type]
+
+    CreateTaskRequest:
+      type: object
+      properties:
+        title:
+          type: string
+          example: Save the world
+        description:
+          type: string
+          nullable: true
+          example: Defeat the villain.
+        priority:
+          $ref: '#/components/schemas/TaskPriority'
+      required: [title, priority]
+
+    AssignTasksRequest:
+      type: object
+      properties:
+        user_id:
+          type: string
+          format: uuid
+          description: User ID (James Bond) to assign tasks to.
+        task_ids:
+          type: array
+          items:
+            type: string
+            format: uuid
+      required: [user_id, task_ids]
+
+    AssignTasksResponse:
+      type: object
+      properties:
+        message:
+          type: string
+      required: [message]
+
+    UserSummaryDto:
+      type: object
+      properties:
+        email:
+          type: string
+          format: email
+        role:
+          $ref: '#/components/schemas/UserRole'
+      required: [email, role]
+
+    TaskDto:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        title:
+          type: string
+        status:
+          $ref: '#/components/schemas/TaskStatus'
+        priority:
+          $ref: '#/components/schemas/TaskPriority'
+        assigned_to:
+          type: string
+          format: email
+          description: Email of the assigned user.
+      required: [id, title, status, priority, assigned_to]
+
+    SummaryDto:
+      type: object
+      properties:
+        total_assigned_tasks:
+          type: integer
+      required: [total_assigned_tasks]
+
+    CacheMetadata:
+      type: object
+      properties:
+        hit:
+          type: boolean
+          description: Indicates if the response was served from Redis cache.
+      required: [hit]
+
+    ViewTasksResponse:
+      type: object
+      properties:
+        user:
+          $ref: '#/components/schemas/UserSummaryDto'
+        tasks:
+          type: array
+          items:
+            $ref: '#/components/schemas/TaskDto'
+        summary:
+          $ref: '#/components/schemas/SummaryDto'
+        cache:
+          $ref: '#/components/schemas/CacheMetadata'
+      required: [user, tasks, summary, cache]

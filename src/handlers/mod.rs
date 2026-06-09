@@ -1,7 +1,7 @@
 pub mod tasks;
 
 use axum::{
-    extract::{FromRequestParts, State},
+    extract::FromRequestParts,
     http::{request::Parts, StatusCode},
 };
 use jsonwebtoken::{decode, DecodingKey, Validation};
@@ -20,7 +20,6 @@ pub type SharedState = Arc<AppState>;
 
 pub struct AuthUser(pub Claims);
 
-#[async_trait]
 impl FromRequestParts<SharedState> for AuthUser {
     type Rejection = (StatusCode, String);
 

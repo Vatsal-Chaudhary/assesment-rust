@@ -1,5 +1,5 @@
 # --- Stage 1: Build Recipe ---
-FROM rust:1.78-slim AS builder
+FROM rust:1.96-slim AS builder
 
 WORKDIR /app
 
@@ -31,7 +31,7 @@ WORKDIR /app
 RUN apt-get update && apt-get install -y libssl3 ca-certificates && rm -rf /var/lib/apt/lists/*
 
 # Copy compiled binary from build engine stage
-COPY --from=builder /app/target/release/assessment-rust ./assessment-rust
+COPY --from=builder /app/target/release/assesment-rust ./assessment-rust
 COPY --from=builder /app/migrations ./migrations
 
 # Expose port and configure environment runtime profiles

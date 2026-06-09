@@ -8,16 +8,18 @@ pub struct UserRepository;
 impl UserRepository {
     pub async fn create_user(
         pool: &PgPool, 
+        full_name: &str,
         email: &str, 
-        password_hash: &str, 
+        hashed_password: &str, 
         role: UserRole
     ) -> Result<User, sqlx::Error> {
         let user = sqlx::query_as::<_, User>(
-            "INSERT INTO users (email, password_hash, role) VALUES ($1, $2, $3) 
-             RETURNING id, email, password_hash, role, created_at"
+            "INSERT INTO users (full_name, email, hashed_password, role) VALUES ($1, $2, $3, $4) 
+             RETURNING id, full_name, email, hashed_password, role, created_at, updated_at"
         )
+        .bind(full_name)
         .bind(email)
-        .bind(password_hash)
+        .bind(hashed_password)
         .bind(role)
         .fetch_one(pool)
         .await?;

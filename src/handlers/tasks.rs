@@ -1,5 +1,3 @@
-use std::sync::Arc;
-
 // Replace the top section of src/handlers/tasks.rs with this exact code:
 use axum::{
     extract::State,
@@ -9,7 +7,6 @@ use axum::{
 };
 use jsonwebtoken::{encode, EncodingKey, Header};
 use redis::AsyncCommands;
-use uuid::Uuid;
 use chrono::Utc;
 use argon2::{
     password_hash::{PasswordHasher, SaltString},
@@ -17,7 +14,7 @@ use argon2::{
 };
 use rand::RngExt; 
 
-use crate::{handlers::AppState, models::*};
+use crate::models::*;
 use crate::repository::{user_repo::UserRepository, task_repo::TaskRepository};
 use crate::handlers::{SharedState, AuthUser};
 
@@ -54,11 +51,11 @@ pub async fn seed_users(State(state): State<SharedState>) -> Result<Json<SeedUse
     let admin_hash = hash_secret("AdminPassword123");
     let jb_hash = hash_secret("ShakenNotStirred");
 
-    let admin = UserRepository::create_user(&state.db, admin_email, &admin_hash, UserRole::Admin)
+    let admin = UserRepository::create_user(&state.db, "Admin User", admin_email, &admin_hash, UserRole::Admin)
         .await
         .map_err(|e| (StatusCode::INTERNAL_SERVER_ERROR, e.to_string()))?;
 
-    let jb = UserRepository::create_user(&state.db, jb_email, &jb_hash, UserRole::Staff)
+    let jb = UserRepository::create_user(&state.db, "James Bond", jb_email, &jb_hash, UserRole::Staff)
         .await
         .map_err(|e| (StatusCode::INTERNAL_SERVER_ERROR, e.to_string()))?;
 
@@ -79,7 +76,7 @@ pub async fn login(
         .map_err(|e| (StatusCode::INTERNAL_SERVER_ERROR, e.to_string()))?
         .ok_or((StatusCode::UNAUTHORIZED, "Invalid email or password".to_string()))?;
 
-    if !verify_hash(&payload.password, &user.password_hash) {
+    if !verify_hash(&payload.password, &user.hashed_password) {
         return Err((StatusCode::UNAUTHORIZED, "Invalid email or password".to_string()));
     }
 

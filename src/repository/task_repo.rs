@@ -1,6 +1,6 @@
 use sqlx::PgPool;
 use uuid::Uuid;
-use crate::models::{Task, TaskPriority, TaskStatus, TaskDto};
+use crate::models::{Task, TaskPriority, TaskDto};
 
 pub struct TaskRepository;
 
@@ -10,17 +10,17 @@ impl TaskRepository {
         title: &str,
         description: Option<String>,
         priority: TaskPriority,
-        created_by: Uuid,
+        created_by_id: Uuid,
     ) -> Result<Task, sqlx::Error> {
         sqlx::query_as::<_, Task>(
-            "INSERT INTO tasks (title, description, priority, created_by, status) 
+            "INSERT INTO tasks (title, description, priority, created_by_id, status) 
              VALUES ($1, $2, $3, $4, 'todo') 
-             RETURNING id, title, description, status, priority, created_by, assigned_to_id, created_at"
+             RETURNING id, title, description, status, priority, created_by_id, assigned_to_id, created_at, updated_at"
         )
         .bind(title)
         .bind(description)
         .bind(priority)
-        .bind(created_by)
+        .bind(created_by_id)
         .fetch_one(pool)
         .await
     }
@@ -34,7 +34,7 @@ impl TaskRepository {
         let mut tx = pool.begin().await?;
 
         for task_id in task_ids {
-            sqlx::query("UPDATE tasks SET assigned_to_id = $1 WHERE id = $2")
+            sqlx::query("UPDATE tasks SET assigned_to_id = $1, updated_at = NOW() WHERE id = $2")
                 .bind(user_id)
                 .bind(task_id)
                 .execute(&mut *tx)

@@ -31,10 +31,12 @@ pub enum TaskStatus {
 #[derive(Debug, Clone, sqlx::FromRow, Serialize, Deserialize)]
 pub struct User {
     pub id: Uuid,
+    pub full_name: String,
     pub email: String,
-    pub password_hash: String,
+    pub hashed_password: String,
     pub role: UserRole,
     pub created_at: DateTime<Utc>,
+    pub updated_at: DateTime<Utc>,
 }
 
 #[derive(Debug, Clone, sqlx::FromRow)]
@@ -54,9 +56,10 @@ pub struct Task {
     pub description: Option<String>,
     pub status: TaskStatus,
     pub priority: TaskPriority,
-    pub created_by: Uuid,
+    pub created_by_id: Uuid,
     pub assigned_to_id: Option<Uuid>,
     pub created_at: DateTime<Utc>,
+    pub updated_at: DateTime<Utc>,
 }
 
 #[derive(Debug, Clone, sqlx::FromRow, Serialize, Deserialize)]
