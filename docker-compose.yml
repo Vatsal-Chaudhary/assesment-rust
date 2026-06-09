@@ -1,0 +1,56 @@
+version: '3.8'
+
+services:
+  # 1. PostgreSQL Structural Database Node
+  postgres:
+    image: postgres:16-alpine
+    container_name: assessment_postgres
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: password
+      POSTGRES_DB: assessment_db
+    ports:
+      - "5432:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres -d assessment_db"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  # 2. Redis Caching Cluster Node
+  redis:
+    image: redis:7-alpine
+    container_name: assessment_redis
+    ports:
+      - "6379:6379"
+    volumes:
+      - redisdata:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  # 3. Axum Backend Crate Application
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: assessment_app
+    ports:
+      - "8080:8080"
+    environment:
+      - DATABASE_URL=postgres://postgres:password@postgres:5432/assessment_db
+      - REDIS_URL=redis://redis:6379
+      - JWT_SECRET=SUPER_SECRET_SIGNING_KEY_12345_DONOTUSEINPRODUCTION
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+
+volumes:
+  pgdata:
+  redisdata:
